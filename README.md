@@ -5,16 +5,16 @@
 ## Installation
 
 ```bash
-bun add ts-task
+bun add @oliveryasuna/ts-task
 
 # or pnpm
-pnpm add ts-task
+pnpm add @oliveryasuna/ts-task
 
 # or npm
-npm install ts-task
+npm install @oliveryasuna/ts-task
 
 # or yarn
-yarn add ts-task
+yarn add @oliveryasuna/ts-task
 ```
 
 ## Usage
