@@ -14,16 +14,16 @@ This was originally written to build my own projects, and it turned out clean en
 ## Install
 
 ```sh
-bun add @oliveryasuna/ts-task
+bun add --global @oliveryasuna/ts-task
 
 # or pnpm
-pnpm add @oliveryasuna/ts-task
+pnpm add --global @oliveryasuna/ts-task
 
 # or npm
-npm install @oliveryasuna/ts-task
+npm install --global @oliveryasuna/ts-task
 
 # or yarn
-yarn add @oliveryasuna/ts-task
+yarn add --global @oliveryasuna/ts-task
 ```
 
 The runner itself ships as an ESM binary and runs on Node 22+ or Bun. Your config file is TypeScript and gets transpiled on the fly, so there's no build step between editing `tasks.config.ts` and running it.
