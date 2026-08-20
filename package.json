@@ -23,9 +23,9 @@
   },
   "type": "module",
   "bin": {
-    "ts-task": "./bin/cli.js",
+    "ts-task": "./dist/cli.js",
     "tstask": "./dist/cli.js",
-    "tt": "./bin/cli.js"
+    "tt": "./dist/cli.js"
   },
   "module": "./dist/index.js",
   "exports": {
