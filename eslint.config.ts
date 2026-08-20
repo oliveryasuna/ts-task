@@ -4,6 +4,7 @@ export default defineConfig(
   {
     ignores: (defaults => [
       ...defaults,
+      'README.md',
       '*git-ignore*'
     ]),
     javascript: {
