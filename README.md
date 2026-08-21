@@ -6,8 +6,6 @@ A task runner you configure in TypeScript, where the types actually reach across
 
 Most task runners hand you YAML, or JSON, or a pile of untyped JavaScript. That's fine until one task depends on another and you want to pass something between them. Suddenly you're threading strings through a config the type checker knows nothing about, and a typo in a dependency name or a task's option only shows up when you run the thing. `ts-task` puts the whole build graph in a normal `.ts` file, so a task's dependencies, its inputs, and its CLI options are all just types. Wire a dependency up wrong, forget to bind an input, name two options the same thing, and it's a red squiggle in your editor rather than a surprise at the terminal.
 
-This was originally written to build my own projects, and it turned out clean enough that I figured someone else might want it. I hope you find it useful too!
-
 > [!NOTE]
 > In case you're allergic to AI, rest easy knowing this project was handwritten (I wrote this in a day, so let me know if there are any issues). Documentation was AI-assisted.
 
