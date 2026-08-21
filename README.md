@@ -171,6 +171,66 @@ const build = task({
 
 The one thing to keep in mind: the runner never derives any part of your key for you. In particular, a dependency's output is *not* folded in automatically. If a task's result depends on what `compile` produced, you have to put the relevant piece of `ctx.deps.compile` into the key yourself. This is deliberate, since most dependency outputs are irrelevant to a given consumer and hashing all of them wholesale would defeat the cache, but it does mean an incomplete key is silently wrong rather than merely slow. Put everything that can change the output into the key: the input, the options `run` actually reads, the relevant parts of `ctx.deps`, and any out-of-band state like source hashes or tool versions.
 
+## Plugins
+
+A plugin bundles up things worth reusing across projects: a set of tasks, a way to report progress, a cache backend, or a rewrite of the task graph. Since the config is just TypeScript, a plugin is just an object. There's no registration ceremony and nothing to wire into a manifest; you drop it in the `plugins` array and its contributions get folded into the run.
+
+```ts
+import {defineConfig, task} from '@oliveryasuna/ts-task';
+
+const eslintPlugin = {
+  name: 'eslint',
+  tasks: [
+    task({name: 'lint', run: async(ctx) => { /* ... */ }})
+  ]
+};
+
+export default defineConfig({
+  plugins: [eslintPlugin],
+  tasks: [/* your own tasks */],
+  defaultTask: 'lint'
+});
+```
+
+A plugin has a `name` and any of the following, all optional.
+
+**`tasks`** are merged into the graph alongside your own, and their options show up as CLI flags exactly like a hand-written task's.
+
+**`reporter`** observes execution. Every hook is optional and runs alongside the built-in reporter that prints the usual `[task] done in Nms` lines, so you can add JSON output, CI annotations, or timing without replacing anything:
+
+```ts
+const timing = {
+  name: 'timing',
+  reporter: {
+    onTaskEnd: (e) => { console.error(`${e.taskId} took ${e.durationMs}ms`); }
+  }
+};
+```
+
+The hooks are `onRunStart`, `onTaskStart`, `onTaskEnd`, `onTaskError`, `onCacheHit`, `onCacheMiss`, and `onRunEnd`. A reporter only observes, so if one throws, the run carries on regardless.
+
+**`cache`** provides a default `CacheStore`, the same seam from the Caching section. An explicit `cache` on the config wins; otherwise the first plugin that offers one is used.
+
+**`transform`** rewrites the merged task list. It runs after every plugin's tasks are merged in, so you can add, remove, or wrap tasks:
+
+```ts
+import {wrapRun} from '@oliveryasuna/ts-task';
+
+const wrapTiming = {
+  name: 'wrap-timing',
+  transform: (tasks) => tasks.map((t) => wrapRun(t, (run) => async(ctx) => {
+    const start = Date.now();
+    const out = await run(ctx);
+    ctx.log.info(`took ${Date.now() - start}ms`);
+    return out;
+  }))
+};
+```
+
+`wrapRun` rebuilds a task with its `run` wrapped, keeping its dependencies, options, and cache policy intact. Two things to know about it. It wraps a task's own `run`, so it takes effect when that task is an entry point or when you build new dependency edges from the returned task, but it does not retroactively rewrap tasks that already depend on the original. And `transform` works on the erased task type, without the per-task generics you get from `task(...)`.
+
+That last point is the one place the type safety steps back. The compile-time checks (duplicate ids, an input-declaring task used as an entry point) only cover the tasks you write literally in `tasks`. Anything a plugin contributes or a transform produces is checked when the config resolves instead, so you still get the same error, just at startup rather than in your editor.
+
 ## Running
 
 ```sh
