@@ -13,6 +13,13 @@ interface Plugin {
   readonly name: string;
   /** Tasks the plugin contributes to the graph. */
   readonly tasks?: (readonly AnyTask[]);
+  /**
+   * Rewrite the merged task list: add, remove, or wrap tasks. Runs after every
+   * plugin's `tasks` are merged, folded in plugin order. Operates on erased
+   * `AnyTask` values (see the note above). Use `wrapRun` to wrap a task's `run`
+   * without breaking its methods or self-reference.
+   */
+  transform?(tasks: (readonly AnyTask[])): (readonly AnyTask[]);
   /** An execution observer, run alongside the runner's default reporter. */
   readonly reporter?: Reporter;
   /** A default cache store. An explicit `config.cache` takes precedence. */

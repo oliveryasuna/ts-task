@@ -144,6 +144,54 @@ const build = ((
   return (self as AnyTask);
 });
 
+/**
+ * Rebuild a task with its `run` wrapped, for use inside a plugin `transform`.
+ * A plain spread would drop the non-enumerable self-reference and leave `with`
+ * / `as` / `cached` pointing at the original, so this reconstructs the task:
+ * new edges made from it (and `.cached(...)`) carry the wrapper.
+ *
+ * Note: this wraps the task's own `run`. Existing dependency edges resolve
+ * through their own back-reference, so wrapping a task does not retroactively
+ * rewrap places that already depend on it; it takes effect for entry points and
+ * for edges created from the returned task.
+ */
+const wrapRun = ((
+  task: AnyTask,
+  wrap: ((run: AnyTask['run']) => AnyTask['run'])
+): AnyTask => {
+  const key = ((task as any).key as string);
+  const self: any = {
+    id: task.id,
+    key: key,
+    taskId: task.taskId,
+    input: task.input,
+    description: task.description,
+    deps: task.deps,
+    options: task.options,
+    identity: task.identity,
+    requiresInput: task.requiresInput,
+    cache: task.cache,
+    run: wrap(task.run),
+    // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
+    as: ((k: string) => makeDep(self, k, undefined)),
+    with: ((input: unknown) => makeDep(self, key, input)),
+    // Cache off the original (unwrapped) task, then re-wrap, so both the cache
+    // policy and the wrapper survive.
+    cached: ((policy: unknown): AnyTask => wrapRun(task.cached(policy as never), wrap))
+  };
+
+  Object.defineProperty(
+    self,
+    'task',
+    {
+      value: self,
+      enumerable: false
+    }
+  );
+
+  return (self as AnyTask);
+});
+
 const task = (<
   const Id extends string,
   const Deps extends DepList = (readonly []),
@@ -191,6 +239,7 @@ export {
   type,
   task,
   namespace,
+  wrapRun,
   defineConfig
 };
 export type {

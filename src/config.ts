@@ -114,18 +114,27 @@ interface ResolvedConfig {
  * invariants `defineConfig` can only check for hand-written tasks.
  *
  * Deterministic order: authored tasks first, then each plugin's tasks in plugin
- * order. `transform` (a later step) runs after this merge.
+ * order, then each plugin's `transform` folded over the merged list in plugin
+ * order. The runtime checks run last, so they validate the transformed result.
  */
 const resolveConfig = ((config: Config<(readonly AnyTask[])>): ResolvedConfig => {
   const plugins = (config.plugins ?? []);
 
-  const tasks = [
+  let tasks: (readonly AnyTask[]) = [
     ...config.tasks,
     ...plugins.flatMap(p => (p.tasks ?? []))
   ];
 
+  // Graph transforms (add / remove / wrap) see the fully merged list, including
+  // every other plugin's tasks, and each sees the previous transform's output.
+  for(const plugin of plugins) {
+    if(plugin.transform) {
+      tasks = plugin.transform(tasks);
+    }
+  }
+
   // The compile-time `DuplicateIds` guard only sees the authored tuple, so a
-  // collision introduced by a plugin task surfaces here instead.
+  // collision introduced by a plugin task or a transform surfaces here instead.
   const seen = (new Set<string>());
   for(const t of tasks) {
     if(seen.has(t.id)) {
