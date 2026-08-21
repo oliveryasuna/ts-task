@@ -404,6 +404,65 @@ const buildProgram = ((config?: Config<readonly AnyTask[]>): {
   };
 });
 
+//==================================================
+// Run
+//==================================================
+
+interface RunTasksOptions {
+  readonly config: Config<(readonly AnyTask[])>;
+  readonly root: string;
+  readonly declared: ReadonlyMap<string, Declared>;
+  readonly flags: Readonly<Record<string, unknown>>;
+  readonly signal: AbortSignal;
+}
+
+/**
+ * Resolve a set of requested task ids against a config and run them once.
+ * Extracted from `main` so anything holding a loaded config (watch, and later
+ * plugin-contributed commands) can trigger a run by id without re-deriving the
+ * option map or concurrency policy.
+ */
+const runTasks = (async(
+  requested: (readonly string[]),
+  opts: RunTasksOptions
+): Promise<void> => {
+  const byId = (new Map(opts.config.tasks.map(t => [
+    t.id,
+    t
+  ])));
+  const roots = requested.map((id) => {
+    const task = byId.get(id);
+    if(!task) {
+      throw (new Error(`Unknown task "${id}". Run with --list to see available tasks.`));
+    }
+    // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
+    return makeNode(task, undefined);
+  });
+
+  const options = resolveOptions(walk(roots).values(), opts.declared, opts.flags);
+
+  await execute(
+    roots,
+    {
+      cwd: opts.root,
+      options: options,
+      concurrency: (opts.flags.concurrency
+        ? Number(opts.flags.concurrency)
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Intentional.
+        : Math.max(1, ((globalThis.navigator?.hardwareConcurrency ?? 4) - 1))),
+      // commander maps `--no-cache` to `cache: false`.
+      cache: ((opts.flags.cache === false) ? undefined : opts.config.cache),
+      dryRun: (opts.flags.dryRun === true),
+      verbose: (opts.flags.verbose === true),
+      signal: opts.signal
+    }
+  );
+});
+
+//==================================================
+// Main
+//==================================================
+
 const main = (async(): Promise<number> => {
   const pre = preParse();
 
@@ -454,21 +513,6 @@ const main = (async(): Promise<number> => {
     throw (new Error('No task given and no defaultTask configured.'));
   }
 
-  const byId = (new Map(config.tasks.map(t => [
-    t.id,
-    t
-  ])));
-  const roots = requested.map((id) => {
-    const task = byId.get(id);
-    if(!task) {
-      throw (new Error(`Unknown task "${id}". Run with --list to see available tasks.`));
-    }
-    // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
-    return makeNode(task, undefined);
-  });
-
-  const options = resolveOptions(walk(roots).values(), declared, flags);
-
   const controller = (new AbortController());
   const abort = ((): void => {
     controller.abort(new Error('Interrupted'));
@@ -477,19 +521,13 @@ const main = (async(): Promise<number> => {
   process.once('SIGTERM', abort);
 
   const runOnce = (async(): Promise<void> =>
-    execute(
-      roots,
+    runTasks(
+      requested,
       {
-        cwd: root,
-        options: options,
-        concurrency: (flags.concurrency
-          ? Number(flags.concurrency)
-          // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Intentional.
-          : Math.max(1, ((globalThis.navigator?.hardwareConcurrency ?? 4) - 1))),
-        // commander maps `--no-cache` to `cache: false`.
-        cache: ((flags.cache === false) ? undefined : config.cache),
-        dryRun: (flags.dryRun === true),
-        verbose: (flags.verbose === true),
+        config: config,
+        root: root,
+        declared: declared,
+        flags: flags,
         signal: controller.signal
       }
     ));
