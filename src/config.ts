@@ -1,7 +1,12 @@
+import type {AnyTask, CacheStore, Config, Reporter} from './types';
 import {createJiti, type Jiti} from 'jiti';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import url from 'node:url';
+
+//==================================================
+// Loading
+//==================================================
 
 const CONFIG_NAMES = ([
   'tasks.config.ts',
@@ -92,10 +97,66 @@ const loadConfig = (async<T = unknown>(options: LoadOptions = {}): Promise<Loade
   };
 });
 
+//==================================================
+// Resolving
+//==================================================
+
+interface ResolvedConfig {
+  readonly tasks: (readonly AnyTask[]);
+  readonly defaultTask?: string;
+  readonly cache?: CacheStore;
+  readonly reporters: (readonly Reporter[]);
+}
+
+/**
+ * Fold a config's plugins into the effective run: merge contributed tasks, pick
+ * the cache store, collect plugin reporters, and enforce at runtime the
+ * invariants `defineConfig` can only check for hand-written tasks.
+ *
+ * Deterministic order: authored tasks first, then each plugin's tasks in plugin
+ * order. `transform` (a later step) runs after this merge.
+ */
+const resolveConfig = ((config: Config<(readonly AnyTask[])>): ResolvedConfig => {
+  const plugins = (config.plugins ?? []);
+
+  const tasks = [
+    ...config.tasks,
+    ...plugins.flatMap(p => (p.tasks ?? []))
+  ];
+
+  // The compile-time `DuplicateIds` guard only sees the authored tuple, so a
+  // collision introduced by a plugin task surfaces here instead.
+  const seen = (new Set<string>());
+  for(const t of tasks) {
+    if(seen.has(t.id)) {
+      throw (new Error(`Duplicate task id: ${t.id}`));
+    }
+    seen.add(t.id);
+  }
+
+  // Entry points cannot declare an input; there is no `.with()` on a command
+  // line. `PendingDeps` enforces this at compile time for authored tasks.
+  for(const t of tasks) {
+    if(t.requiresInput) {
+      throw (new Error(`Task "${t.id}" declares an input and cannot be a CLI entry point; remove it from tasks`));
+    }
+  }
+
+  return {
+    tasks: tasks,
+    defaultTask: config.defaultTask,
+    // An explicit config store wins; otherwise the first plugin that offers one.
+    cache: (config.cache ?? plugins.find(p => p.cache)?.cache),
+    reporters: plugins.flatMap(p => (p.reporter ? [p.reporter] : []))
+  };
+});
+
 export type {
   LoadOptions,
-  LoadedConfig
+  LoadedConfig,
+  ResolvedConfig
 };
 export {
-  loadConfig
+  loadConfig,
+  resolveConfig
 };

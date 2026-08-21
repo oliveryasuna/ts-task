@@ -1,3 +1,4 @@
+import type {LoadedConfig, ResolvedConfig} from './config';
 import type {AnyDep, AnyTask, CacheEntry, CacheStore, Config, Logger, Option, Reporter} from './types';
 import chalk from 'chalk';
 import {watch} from 'chokidar';
@@ -8,7 +9,7 @@ import pLimit from 'p-limit';
 import stringify from 'safe-stable-stringify';
 import {x} from 'tinyexec';
 import {version} from '../package.json' with {type: 'json'};
-import {loadConfig, type LoadedConfig} from './load-config';
+import {loadConfig, resolveConfig} from './config';
 
 const VERSION = version;
 
@@ -44,15 +45,18 @@ const makeDefaultReporter = ((verbose: boolean): Reporter => ({
 }));
 
 // A reporter is an observer; its failure must never influence the run. Each
-// hook is awaited (so async reporters flush in order) and its errors swallowed.
+// hook is awaited (so async reporters flush in order) and its errors swallowed;
+// reporters fire in registration order (the default reporter first).
 const emit = (async(
-  reporter: Reporter,
+  reporters: (readonly Reporter[]),
   notify: ((r: Reporter) => unknown)
 ): Promise<void> => {
-  try {
-    await notify(reporter);
-  } catch{
-    // Intentionally ignored: an observer must not break execution.
+  for(const reporter of reporters) {
+    try {
+      await notify(reporter);
+    } catch{
+      // Intentionally ignored: an observer must not break execution.
+    }
   }
 });
 
@@ -145,7 +149,7 @@ interface RunOptions {
   readonly cache: (CacheStore | undefined);
   readonly dryRun: boolean;
   readonly verbose: boolean;
-  readonly reporter: Reporter;
+  readonly reporters: (readonly Reporter[]);
   readonly signal: AbortSignal;
 }
 
@@ -206,10 +210,10 @@ const execute = (async(
       if(key && policy && opts.cache) {
         const entry = (await opts.cache.get(key));
         if(entry && (policy.validate ? (await policy.validate(entry, (base as never))) : true)) {
-          await emit(opts.reporter, (r => r.onCacheHit?.(event)));
+          await emit(opts.reporters, (r => r.onCacheHit?.(event)));
           return decode(policy, entry);
         }
-        await emit(opts.reporter, (r => r.onCacheMiss?.(event)));
+        await emit(opts.reporters, (r => r.onCacheMiss?.(event)));
       }
 
       if(opts.dryRun) {
@@ -218,7 +222,7 @@ const execute = (async(
       }
 
       return limit(async() => {
-        await emit(opts.reporter, (r => r.onTaskStart?.(event)));
+        await emit(opts.reporters, (r => r.onTaskStart?.(event)));
         const started = Date.now();
         try {
           const out = (await node.task.run({
@@ -242,7 +246,7 @@ const execute = (async(
             })
           } as never));
           await emit(
-            opts.reporter,
+            opts.reporters,
             (r => r.onTaskEnd?.({
               ...event,
               durationMs: (Date.now() - started),
@@ -265,7 +269,7 @@ const execute = (async(
           return out;
         } catch(err) {
           await emit(
-            opts.reporter,
+            opts.reporters,
             (r => r.onTaskError?.({
               ...event,
               error: err
@@ -281,7 +285,7 @@ const execute = (async(
   });
 
   await emit(
-    opts.reporter,
+    opts.reporters,
     (r => r.onRunStart?.({
       roots: roots.map(root => root.label),
       dryRun: opts.dryRun
@@ -292,7 +296,7 @@ const execute = (async(
     await Promise.all(roots.map(async root => runNode(root)));
   } catch(err) {
     await emit(
-      opts.reporter,
+      opts.reporters,
       (r => r.onRunEnd?.({
         ok: false,
         durationMs: (Date.now() - runStarted)
@@ -301,7 +305,7 @@ const execute = (async(
     throw err;
   }
   await emit(
-    opts.reporter,
+    opts.reporters,
     (r => r.onRunEnd?.({
       ok: true,
       durationMs: (Date.now() - runStarted)
@@ -430,7 +434,7 @@ const preParse = ((): {
   };
 });
 
-const buildProgram = ((config?: Config<readonly AnyTask[]>): {
+const buildProgram = ((tasks?: (readonly AnyTask[])): {
   program: Command;
   declared: Map<string, Declared>;
 } => {
@@ -449,9 +453,9 @@ const buildProgram = ((config?: Config<readonly AnyTask[]>): {
     .option('--verbose', 'Debug logging');
 
   const declared = (new Map<string, Declared>());
-  if(config) {
+  if(tasks) {
     // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
-    for(const node of walk(config.tasks.map(t => makeNode(t, undefined))).values()) {
+    for(const node of walk(tasks.map(t => makeNode(t, undefined))).values()) {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Bug with rule.
       const options = (Object.entries(node.task.options) as Array<[string, Option<unknown>]>);
       // eslint-disable-next-line @stylistic/array-bracket-newline, @stylistic/array-element-newline -- Clean.
@@ -483,7 +487,7 @@ const buildProgram = ((config?: Config<readonly AnyTask[]>): {
 //==================================================
 
 interface RunTasksOptions {
-  readonly config: Config<(readonly AnyTask[])>;
+  readonly config: ResolvedConfig;
   readonly root: string;
   readonly declared: ReadonlyMap<string, Declared>;
   readonly flags: Readonly<Record<string, unknown>>;
@@ -529,7 +533,11 @@ const runTasks = (async(
       cache: ((opts.flags.cache === false) ? undefined : opts.config.cache),
       dryRun: (opts.flags.dryRun === true),
       verbose: verbose,
-      reporter: makeDefaultReporter(verbose),
+      // Default reporter first, then plugin reporters in registration order.
+      reporters: [
+        makeDefaultReporter(verbose),
+        ...opts.config.reporters
+      ],
       signal: opts.signal
     }
   );
@@ -543,19 +551,22 @@ const main = (async(): Promise<number> => {
   const pre = preParse();
 
   let loaded: (LoadedConfig<Config<readonly AnyTask[]>> | undefined);
-  let loadError: unknown;
+  let resolved: (ResolvedConfig | undefined);
+  let configError: unknown;
   try {
     loaded = (await loadConfig<Config<readonly AnyTask[]>>({
       ...(pre.cwd ? {cwd: pre.cwd} : {}),
       ...(pre.config ? {configPath: pre.config} : {}),
       reloadable: pre.watch
     }));
+    resolved = resolveConfig(loaded.config);
   } catch(err) {
-    // Deferred: `--help` must still work in a directory with no config.
-    loadError = err;
+    // Deferred: `--help` must still work when the config is missing or its
+    // plugins fail to resolve.
+    configError = err;
   }
 
-  const {program, declared} = buildProgram(loaded?.config);
+  const {program, declared} = buildProgram(resolved?.tasks);
 
   let tasks: string[] = [];
   let flags: Record<string, unknown> = {};
@@ -566,13 +577,14 @@ const main = (async(): Promise<number> => {
 
   await program.parseAsync(process.argv);
 
-  if(loadError) {
-    throw loadError;
+  if(configError) {
+    throw configError;
   }
-  if(!loaded) {
+  if(!loaded || !resolved) {
     throw (new Error('Config was not loaded.'));
   }
-  const {config, root} = loaded;
+  const {root} = loaded;
+  const config = resolved;
 
   if(flags.list === true) {
     for(const task of config.tasks) {

@@ -12,6 +12,7 @@ import type {
   OptionBuilder,
   OptionsSpec,
   PendingDeps,
+  Plugin,
   Task,
   TaskDef,
   TaskFactory
@@ -175,6 +176,7 @@ const defineConfig = (<const T extends (readonly AnyTask[])>(
       readonly tasks: T;
       readonly defaultTask?: T[number]['id'];
       readonly cache?: CacheStore;
+      readonly plugins?: (readonly Plugin[]);
     }
     & ([DuplicateIds<T>] extends [never]
       ? unknown
@@ -191,4 +193,10 @@ export {
   namespace,
   defineConfig
 };
+export type {
+  ResolvedConfig
+} from './config';
+export {
+  resolveConfig
+} from './config';
 export * from './types';
