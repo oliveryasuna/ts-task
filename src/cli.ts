@@ -1,4 +1,4 @@
-import type {AnyDep, AnyTask, CacheEntry, CacheStore, Config, Logger, Option} from './types';
+import type {AnyDep, AnyTask, CacheEntry, CacheStore, Config, Logger, Option, Reporter} from './types';
 import chalk from 'chalk';
 import {watch} from 'chokidar';
 import {Option as CliOption, Command, CommanderError} from 'commander';
@@ -32,6 +32,28 @@ const makeLogger = ((
     warn: ((m, ...r) => write(chalk.yellow(fmt(m, r)))),
     error: ((m, ...r) => write(chalk.red(fmt(m, r))))
   };
+});
+
+// The executor's own status lines live here, behind the Reporter seam, rather
+// than inline at each call site. Reproduces the previous output exactly, so the
+// default run is unchanged; plugins layer on additional reporters.
+const makeDefaultReporter = ((verbose: boolean): Reporter => ({
+  onCacheHit: (e => makeLogger(e.label, verbose).debug('cache hit')),
+  onTaskStart: (e => makeLogger(e.label, verbose).debug('start')),
+  onTaskEnd: (e => makeLogger(e.label, verbose).info(chalk.green(`done in ${e.durationMs}ms`)))
+}));
+
+// A reporter is an observer; its failure must never influence the run. Each
+// hook is awaited (so async reporters flush in order) and its errors swallowed.
+const emit = (async(
+  reporter: Reporter,
+  notify: ((r: Reporter) => unknown)
+): Promise<void> => {
+  try {
+    await notify(reporter);
+  } catch{
+    // Intentionally ignored: an observer must not break execution.
+  }
 });
 
 const report = ((error: unknown): void => {
@@ -123,6 +145,7 @@ interface RunOptions {
   readonly cache: (CacheStore | undefined);
   readonly dryRun: boolean;
   readonly verbose: boolean;
+  readonly reporter: Reporter;
   readonly signal: AbortSignal;
 }
 
@@ -171,15 +194,22 @@ const execute = (async(
         env: process.env
       };
 
+      const event = {
+        taskId: node.task.id,
+        label: node.label,
+        input: node.input
+      };
+
       const policy = node.task.cache;
       const key = ((policy && opts.cache) ? hash(node.id, (await policy.key(base as never))) : undefined);
 
       if(key && policy && opts.cache) {
         const entry = (await opts.cache.get(key));
         if(entry && (policy.validate ? (await policy.validate(entry, (base as never))) : true)) {
-          log.debug('cache hit');
+          await emit(opts.reporter, (r => r.onCacheHit?.(event)));
           return decode(policy, entry);
         }
+        await emit(opts.reporter, (r => r.onCacheMiss?.(event)));
       }
 
       if(opts.dryRun) {
@@ -188,43 +218,61 @@ const execute = (async(
       }
 
       return limit(async() => {
+        await emit(opts.reporter, (r => r.onTaskStart?.(event)));
         const started = Date.now();
-        log.debug('start');
-        const out = (await node.task.run({
-          ...base,
-          signal: opts.signal,
-          log: log,
-          exec: (async(cmd: string, args: (readonly string[]) = []) => {
-            const r = (await x(
-              cmd,
-              [...args],
-              {
-                signal: opts.signal,
-                nodeOptions: {cwd: opts.cwd}
-              }
-            ));
-            return {
-              code: (r.exitCode ?? 0),
-              stdout: r.stdout,
-              stderr: r.stderr
-            };
-          })
-        } as never));
-        log.info(chalk.green(`done in ${Date.now() - started}ms`));
-
-        if(key && policy && opts.cache) {
-          await opts.cache.set(
-            key,
-            {
-              value: encode(policy, out),
-              meta: {
-                taskId: node.task.id,
-                createdAt: Date.now()
-              }
-            }
+        try {
+          const out = (await node.task.run({
+            ...base,
+            signal: opts.signal,
+            log: log,
+            exec: (async(cmd: string, args: (readonly string[]) = []) => {
+              const r = (await x(
+                cmd,
+                [...args],
+                {
+                  signal: opts.signal,
+                  nodeOptions: {cwd: opts.cwd}
+                }
+              ));
+              return {
+                code: (r.exitCode ?? 0),
+                stdout: r.stdout,
+                stderr: r.stderr
+              };
+            })
+          } as never));
+          await emit(
+            opts.reporter,
+            (r => r.onTaskEnd?.({
+              ...event,
+              durationMs: (Date.now() - started),
+              output: out
+            }))
           );
+
+          if(key && policy && opts.cache) {
+            await opts.cache.set(
+              key,
+              {
+                value: encode(policy, out),
+                meta: {
+                  taskId: node.task.id,
+                  createdAt: Date.now()
+                }
+              }
+            );
+          }
+          return out;
+        } catch(err) {
+          await emit(
+            opts.reporter,
+            (r => r.onTaskError?.({
+              ...event,
+              error: err
+            }))
+          );
+          throw err;
         }
-        return out;
       });
     })();
 
@@ -232,7 +280,33 @@ const execute = (async(
     return promise;
   });
 
-  await Promise.all(roots.map(async root => runNode(root)));
+  await emit(
+    opts.reporter,
+    (r => r.onRunStart?.({
+      roots: roots.map(root => root.label),
+      dryRun: opts.dryRun
+    }))
+  );
+  const runStarted = Date.now();
+  try {
+    await Promise.all(roots.map(async root => runNode(root)));
+  } catch(err) {
+    await emit(
+      opts.reporter,
+      (r => r.onRunEnd?.({
+        ok: false,
+        durationMs: (Date.now() - runStarted)
+      }))
+    );
+    throw err;
+  }
+  await emit(
+    opts.reporter,
+    (r => r.onRunEnd?.({
+      ok: true,
+      durationMs: (Date.now() - runStarted)
+    }))
+  );
 });
 
 //==================================================
@@ -441,6 +515,7 @@ const runTasks = (async(
 
   const options = resolveOptions(walk(roots).values(), opts.declared, opts.flags);
 
+  const verbose = (opts.flags.verbose === true);
   await execute(
     roots,
     {
@@ -453,7 +528,8 @@ const runTasks = (async(
       // commander maps `--no-cache` to `cache: false`.
       cache: ((opts.flags.cache === false) ? undefined : opts.config.cache),
       dryRun: (opts.flags.dryRun === true),
-      verbose: (opts.flags.verbose === true),
+      verbose: verbose,
+      reporter: makeDefaultReporter(verbose),
       signal: opts.signal
     }
   );
