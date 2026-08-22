@@ -35,8 +35,7 @@
     "package.json"
   ],
   "scripts": {
-    "build": "tsdown",
-    "prepack": "tsdown"
+    "prepack": "bun ./src/cli.ts prepack"
   },
   "dependencies": {
     "chalk": "6.0.0"

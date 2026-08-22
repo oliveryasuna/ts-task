@@ -59,13 +59,25 @@ const build = task({
   })
 });
 
-/** What CI runs. Nothing reachable from here mutates the working tree. */
 const verify = task({
   name: 'verify',
-  description: 'Everything CI checks',
+  description: 'Verify the project',
   deps: [
     lint,
     typecheck.with({project: 'tsconfig.config.json'}),
+    build
+  ],
+  run: ((ctx) => {
+    ctx.log.info('all checks passed');
+  })
+});
+
+/** What CI runs. Nothing reachable from here mutates the working tree. */
+const ci = task({
+  name: 'ci',
+  description: 'Everything CI checks',
+  deps: [
+    lint,
     build
   ],
   run: ((ctx) => {
@@ -77,5 +89,6 @@ export {
   typecheck,
   lint,
   build,
-  verify
+  verify,
+  ci
 };
