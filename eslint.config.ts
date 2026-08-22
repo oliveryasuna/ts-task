@@ -5,7 +5,8 @@ export default defineConfig(
     ignores: (defaults => [
       ...defaults,
       'README.md',
-      '*git-ignore*'
+      '*git-ignore*',
+      'plugins/**/*'
     ]),
     javascript: {
       globals: {
