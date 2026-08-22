@@ -1,6 +1,6 @@
 {
   "name": "@oliveryasuna/ts-task",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "license": "MIT",
   "description": "A task runner configured entirely in TypeScript.",
   "homepage": "https://github.com/oliveryasuna/ts-task",
@@ -38,10 +38,11 @@
   },
   "files": [
     "dist",
-    "package.json"
+    "package.json",
+    "../../README.md"
   ],
   "scripts": {
-    "prepack": "bun ./src/cli.ts build"
+    "prepack": "bun ./src/cli.ts prepack"
   },
   "dependencies": {
     "chalk": "6.0.0",
