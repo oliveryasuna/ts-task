@@ -1,0 +1,88 @@
+{
+  "exclude": [
+    "./node_modules"
+  ],
+  "compilerOptions": {
+    //==================================================
+    // Type checking
+    //==================================================
+
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "alwaysStrict": true,
+    "exactOptionalPropertyTypes": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "strict": true,
+    "strictBindCallApply": true,
+    "strictBuiltinIteratorReturn": true,
+    "strictFunctionTypes": true,
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "useUnknownInCatchVariables": true,
+
+    //==================================================
+    // Modules
+    //==================================================
+
+    "baseUrl": "./",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "paths": {
+      "@oliveryasuna/ts-task-summary": ["./packages/plugin-summary/src/index.ts"],
+      "@oliveryasuna/ts-task": ["./packages/ts-task/src/index.ts"]
+    },
+    "resolveJsonModule": true,
+    "rootDir": "./",
+
+    //==================================================
+    // Emit
+    //==================================================
+
+    "declaration": true,
+    "declarationMap": true,
+    "noEmitOnError": true,
+
+    //==================================================
+    // JavaScript support
+    //==================================================
+
+    "allowJs": false,
+
+    //==================================================
+    // Interop constraints
+    //==================================================
+
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+
+    //==================================================
+    // Language and environment
+    //==================================================
+
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "lib": ["ESNext"],
+    "target": "ES2020",
+
+    //==================================================
+    // Output formatting
+    //==================================================
+
+    "noErrorTruncation": true,
+
+    //==================================================
+    // Completeness
+    //==================================================
+
+    "skipLibCheck": true
+  }
+}

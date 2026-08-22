@@ -21,8 +21,10 @@ interface Plugin {
    */
   transform?(tasks: (readonly AnyTask[])): (readonly AnyTask[]);
   /** An execution observer, run alongside the runner's default reporter. */
+  // eslint-disable-next-line @typescript-eslint/member-ordering -- Clean.
   readonly reporter?: Reporter;
   /** A default cache store. An explicit `config.cache` takes precedence. */
+  // eslint-disable-next-line @typescript-eslint/member-ordering -- Clean.
   readonly cache?: CacheStore;
 }
 

@@ -1,9 +1,10 @@
 {
-  "extends": "./tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "files": [],
   "include": [],
   "references": [
-    {"path": "./tsconfig.config.json"}
+    {"path": "./tsconfig.config.json"},
+    {"path": "./tsconfig.build.json"}
   ],
   "compilerOptions": {
     //==================================================

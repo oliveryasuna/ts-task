@@ -47,6 +47,7 @@ const exists = (async(p: string): Promise<boolean> => {
 const discover = (async(cwd: string): Promise<string> => {
   for(const name of CONFIG_NAMES) {
     const candidate = path.resolve(cwd, name);
+    // eslint-disable-next-line no-await-in-loop -- Safe.
     if(await exists(candidate)) {
       return candidate;
     }
@@ -86,6 +87,7 @@ const loadConfig = (async<T = unknown>(options: LoadOptions = {}): Promise<Loade
   const jiti = makeJiti(p, (options.reloadable ?? false));
   const config = (await jiti.import<T>(p, {default: true}));
 
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Intentional.
   if((config === null) || (typeof config !== 'object')) {
     throw (new Error(`${p} must default-export a config object.`));
   }

@@ -3,6 +3,7 @@ import {defineConfig as tsdown} from '@oliveryasuna/tsdown-config';
 import {defineConfig, mergeConfig} from 'tsdown';
 
 const base = (({
+  tsconfig: './tsconfig.build.json',
   format: 'esm',
   fixedExtension: false,
   deps: {

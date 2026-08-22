@@ -39,9 +39,15 @@ const makeLogger = ((
 // than inline at each call site. Reproduces the previous output exactly, so the
 // default run is unchanged; plugins layer on additional reporters.
 const makeDefaultReporter = ((verbose: boolean): Reporter => ({
-  onCacheHit: (e => makeLogger(e.label, verbose).debug('cache hit')),
-  onTaskStart: (e => makeLogger(e.label, verbose).debug('start')),
-  onTaskEnd: (e => makeLogger(e.label, verbose).info(chalk.green(`done in ${e.durationMs}ms`)))
+  onCacheHit: ((e): void => {
+    makeLogger(e.label, verbose).debug('cache hit');
+  }),
+  onTaskStart: ((e): void => {
+    makeLogger(e.label, verbose).debug('start');
+  }),
+  onTaskEnd: ((e): void => {
+    makeLogger(e.label, verbose).info(chalk.green(`done in ${e.durationMs}ms`));
+  })
 }));
 
 // A reporter is an observer; its failure must never influence the run. Each
@@ -53,6 +59,7 @@ const emit = (async(
 ): Promise<void> => {
   for(const reporter of reporters) {
     try {
+      // eslint-disable-next-line no-await-in-loop -- Safe.
       await notify(reporter);
     } catch{
       // Intentionally ignored: an observer must not break execution.
@@ -88,6 +95,7 @@ const makeNode = ((
   const stamp = ((input === undefined) ? undefined : (task.identity?.(input) ?? stringify(input)));
   const id = ((stamp === undefined) ? task.id : `${task.id}#${stamp}`);
   const label =
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- Clean.
     ((stamp === undefined) ? task.id : `${task.id}(${task.identity ? stamp : hash(id).slice(0, 7)})`);
   return {
     id: id,
@@ -158,6 +166,7 @@ type Policy = NonNullable<AnyTask['cache']>;
 const encode = ((
   p: Policy,
   v: unknown
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Intentional.
 ): string => (p.codec ? p.codec.encode(v) : (stringify(v ?? null) ?? 'null')));
 const decode = ((
   p: Policy,
@@ -166,6 +175,7 @@ const decode = ((
 
 const hash = ((...parts: string[]): string => crypto.createHash('sha256').update(parts.join('\0')).digest('hex').slice(0, 32));
 
+// eslint-disable-next-line max-lines-per-function -- Clean.
 const execute = (async(
   roots: (readonly Node[]),
   opts: RunOptions
@@ -173,12 +183,14 @@ const execute = (async(
   const limit = pLimit(opts.concurrency);
   const pending = (new Map<string, Promise<unknown>>());
 
+  // eslint-disable-next-line max-lines-per-function -- Clean.
   const runNode = (async(node: Node): Promise<unknown> => {
     const existing = pending.get(node.id);
     if(existing) {
       return existing;
     }
 
+    // eslint-disable-next-line max-statements -- Clean.
     const promise = (async(): Promise<any> => {
       const deps: Record<string, unknown> = {};
       await Promise.all(
@@ -205,10 +217,12 @@ const execute = (async(
       };
 
       const policy = node.task.cache;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
       const key = ((policy && opts.cache) ? hash(node.id, (await policy.key(base as never))) : undefined);
 
       if(key && policy && opts.cache) {
         const entry = (await opts.cache.get(key));
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
         if(entry && (policy.validate ? (await policy.validate(entry, (base as never))) : true)) {
           await emit(opts.reporters, (r => r.onCacheHit?.(event)));
           return decode(policy, entry);
@@ -221,10 +235,12 @@ const execute = (async(
         return;
       }
 
+      // eslint-disable-next-line max-lines-per-function -- Clean.
       return limit(async() => {
         await emit(opts.reporters, (r => r.onTaskStart?.(event)));
         const started = Date.now();
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
           const out = (await node.task.run({
             ...base,
             signal: opts.signal,
@@ -361,6 +377,7 @@ const declare = ((
  * will actually run, so an unrelated task's required option never blocks an
  * unrelated invocation.
  */
+// eslint-disable-next-line max-statements -- Clean.
 const resolveOptions = ((
   nodes: Iterable<Node>,
   declared: ReadonlyMap<string, Declared>,
@@ -458,7 +475,7 @@ const buildProgram = ((tasks?: (readonly AnyTask[])): {
     for(const node of walk(tasks.map(t => makeNode(t, undefined))).values()) {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Bug with rule.
       const options = (Object.entries(node.task.options) as Array<[string, Option<unknown>]>);
-      // eslint-disable-next-line @stylistic/array-bracket-newline, @stylistic/array-element-newline -- Clean.
+
       for(const [name, option] of options) {
         if(declared.has(name)) {
           continue;
@@ -527,7 +544,7 @@ const runTasks = (async(
       options: options,
       concurrency: (opts.flags.concurrency
         ? Number(opts.flags.concurrency)
-        // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Intentional.
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins, @typescript-eslint/no-unnecessary-condition -- Intentional.
         : Math.max(1, ((globalThis.navigator?.hardwareConcurrency ?? 4) - 1))),
       // commander maps `--no-cache` to `cache: false`.
       cache: ((opts.flags.cache === false) ? undefined : opts.config.cache),
@@ -547,11 +564,15 @@ const runTasks = (async(
 // Main
 //==================================================
 
+// eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Clean.
 const main = (async(): Promise<number> => {
   const pre = preParse();
 
+  // eslint-disable-next-line @typescript-eslint/init-declarations -- Clean.
   let loaded: (LoadedConfig<Config<readonly AnyTask[]>> | undefined);
+  // eslint-disable-next-line @typescript-eslint/init-declarations -- Clean.
   let resolved: (ResolvedConfig | undefined);
+  // eslint-disable-next-line @typescript-eslint/init-declarations -- Clean.
   let configError: unknown;
   try {
     loaded = (await loadConfig<Config<readonly AnyTask[]>>({
@@ -634,6 +655,7 @@ const main = (async(): Promise<number> => {
       ignored: ((path: string): boolean => /(^|[/\\])(node_modules|\.git|dist)([/\\]|$)/.test(path))
     }
   );
+  // eslint-disable-next-line @typescript-eslint/init-declarations -- Clean.
   let timer: (NodeJS.Timeout | undefined);
   watcher.on(
     'all',
@@ -644,7 +666,14 @@ const main = (async(): Promise<number> => {
   );
   watcher.on('error', report);
   controller.signal.addEventListener('abort', (() => void watcher.close()));
-  await (new Promise<void>(resolve => controller.signal.addEventListener('abort', (() => resolve()))));
+  await (new Promise<void>((resolve) => {
+    controller.signal.addEventListener(
+      'abort',
+      (() => {
+        resolve();
+      })
+    );
+  }));
 
   return 0;
 });

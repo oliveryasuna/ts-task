@@ -1,0 +1,60 @@
+{
+  "name": "@oliveryasuna/ts-task-summary",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "A run-summary reporter plugin for ts-task.",
+  "homepage": "https://github.com/oliveryasuna/ts-task",
+  "author": "Oliver Yasuna",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oliveryasuna/ts-task.git",
+    "directory": "plugins/summary"
+  },
+  "bugs": "https://github.com/oliveryasuna/ts-task/issues",
+  "keywords": [
+    "reporter",
+    "summary",
+    "ts-task",
+    "ts-task-plugin"
+  ],
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=22.18.0"
+  },
+  "type": "module",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown"
+  },
+  "dependencies": {
+    "chalk": "6.0.0"
+  },
+  "devDependencies": {
+    "@oliveryasuna/eslint-config": "2.2.2",
+    "@oliveryasuna/ts-task": "workspace:*",
+    "@oliveryasuna/tsdown-config": "1.0.1",
+    "@types/bun": "1.3.14",
+    "eslint": "9.39.2",
+    "tsdown": "0.22.14",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "@oliveryasuna/ts-task": "^1.1.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
+}

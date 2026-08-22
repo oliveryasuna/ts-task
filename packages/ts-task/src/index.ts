@@ -35,11 +35,13 @@ const makeOption = (<T>(base: Option<T>): OptionBuilder<T> => ({
       short: short
     })),
   required: (() =>
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
     (makeOption({
       ...base,
       isRequired: true
     }) as OptionBuilder<Exclude<T, undefined>>)),
   default: (value =>
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
     (makeOption({
       ...base,
       defaultValue: value
@@ -77,6 +79,7 @@ const opt = ({
  *
  * Type-only; returns an opaque marker.
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
 const type = (<T>(): InputType<T> => ({} as InputType<T>));
 
 //==================================================
@@ -104,6 +107,7 @@ const makeDep = ((
     }
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   return ((dep as unknown) as AnyDep);
 });
 
@@ -141,6 +145,7 @@ const build = ((
     }
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   return (self as AnyTask);
 });
 
@@ -159,6 +164,7 @@ const wrapRun = ((
   task: AnyTask,
   wrap: ((run: AnyTask['run']) => AnyTask['run'])
 ): AnyTask => {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   const key = ((task as any).key as string);
   const self: any = {
     id: task.id,
@@ -177,6 +183,7 @@ const wrapRun = ((
     with: ((input: unknown) => makeDep(self, key, input)),
     // Cache off the original (unwrapped) task, then re-wrap, so both the cache
     // policy and the wrapper survive.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
     cached: ((policy: unknown): AnyTask => wrapRun(task.cached(policy as never), wrap))
   };
 
@@ -189,6 +196,7 @@ const wrapRun = ((
     }
   );
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   return (self as AnyTask);
 });
 
@@ -200,11 +208,14 @@ const task = (<
   In = void,
   Out = void
 >(def: (TaskDef<Id, Out, Deps, Opts, In> & DepDiagnostics<Deps>)): Task<Id, Awaited<Out>, Deps, Opts, In> =>
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   ((build(def, '') as unknown) as Task<Id, Awaited<Out>, Deps, Opts, In>));
 
 const namespace = (<const TPrefix extends string>(prefix: TPrefix): Namespace<TPrefix> => ({
   prefix: prefix,
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   task: (((def: any) => build(def, prefix)) as TaskFactory<TPrefix>),
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   namespace: (child => (namespace(`${prefix}:${child}` as any) as any))
 }));
 

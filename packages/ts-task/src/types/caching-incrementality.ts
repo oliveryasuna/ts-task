@@ -107,6 +107,7 @@ interface CachePolicy<
     ctx: CacheContext<TDeps, TOpts, TIn>
   ): (boolean | Promise<boolean>);
   /** Required unless `Out` is JSON-representable. See `Task.cached`. */
+  // eslint-disable-next-line @typescript-eslint/member-ordering -- Clean.
   codec?: Codec<TOut>;
 }
 
