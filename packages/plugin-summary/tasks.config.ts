@@ -1,4 +1,5 @@
-import {defineConfig, namespace} from '@oliveryasuna/ts-task';
+import {defineConfig, inDir, namespace} from '@oliveryasuna/ts-task';
+import path from 'node:path';
 import {buildDefFactory, ciDefFactory, lintDefFactory, typecheckDef, verifyDefFactory} from '../../shared/tasks';
 import {build as tsTaskBuild} from '../ts-task/tasks.config';
 import {summaryReporter} from './src';
@@ -7,7 +8,7 @@ const typecheck = namespace('plugin-summary').task(typecheckDef);
 
 const build = namespace('plugin-summary').task(buildDefFactory({
   deps: [
-    tsTaskBuild,
+    inDir(path.resolve(import.meta.dirname, '../ts-task'), tsTaskBuild),
     typecheck.with({project: 'tsconfig.build.json'})
   ]
 }));
