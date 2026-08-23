@@ -69,7 +69,6 @@ const buildDefFactory = makeDefFactory({
   name: 'build',
   description: 'Bundle with tsdown',
   run: (async(ctx): Promise<void> => {
-    console.log(ctx.cwd);
     await sh(ctx, 'tsdown');
 
     ctx.log.info('bundled');
@@ -117,7 +116,7 @@ const ciDefFactory = makeDefFactory({
 export {
   typecheckDef,
   lintDefFactory,
-  buildDefFactory,
+  buildDefFactory as makeBuildDef,
   verifyDefFactory,
   ciDefFactory
 };
