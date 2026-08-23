@@ -35,7 +35,7 @@
     "package.json"
   ],
   "scripts": {
-    "prepack": "bun ../ts-task/src/cli.ts prepack"
+    "prepack": "bun ../ts-task/src/cli.ts plugin-summary:prepack"
   },
   "dependencies": {
     "chalk": "6.0.0"
