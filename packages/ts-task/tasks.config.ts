@@ -1,10 +1,16 @@
 import {summaryReporter} from '@oliveryasuna/ts-task-summary';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {build, ci, lint, verify} from '../../shared/tasks';
-import {defineConfig, task} from './src';
+import {buildDefFactory, ciDefFactory, lintDefFactory, typecheckDef, verifyDefFactory} from '../../shared/tasks';
+import {defineConfig, namespace} from './src';
 
-const copyReadme = task({
+const typecheck = namespace('ts-task').task(typecheckDef);
+
+const build = namespace('ts-task').task(buildDefFactory({deps: [typecheck.with({project: 'tsconfig.build.json'})]}));
+
+const lint = namespace('ts-task').task(lintDefFactory());
+
+const copyReadme = namespace('ts-task').task({
   name: 'copy-readme',
   description: 'Copy the README.md file from the repo root',
   run: (async(ctx) => {
@@ -14,7 +20,17 @@ const copyReadme = task({
   })
 });
 
-const prepack = task({
+const verify = namespace('ts-task').task(verifyDefFactory({
+  deps: [
+    lint,
+    typecheck.with({project: 'tsconfig.build.json'}),
+    build
+  ]
+}));
+
+const ci = namespace('ts-task').task(ciDefFactory({deps: [verify]}));
+
+const prepack = namespace('ts-task').task({
   name: 'prepack',
   description: 'Prepare the package for publication',
   deps: [
@@ -29,11 +45,14 @@ const prepack = task({
 export default defineConfig({
   plugins: [summaryReporter()],
   tasks: [
-    lint,
     build,
+    lint,
     verify,
     ci,
     prepack
   ],
-  defaultTask: 'verify'
+  defaultTask: 'ts-task:verify'
 });
+export {
+  build
+};

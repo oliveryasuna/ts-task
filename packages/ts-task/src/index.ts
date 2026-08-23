@@ -129,6 +129,7 @@ const build = ((
     identity: def.identity,
     requiresInput: (def.input !== undefined),
     cache: cache,
+    cwd: def.cwd,
     run: def.run,
     // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
     as: ((k: string) => makeDep(self, k, undefined)),
@@ -159,6 +160,12 @@ const build = ((
  * through their own back-reference, so wrapping a task does not retroactively
  * rewrap places that already depend on it; it takes effect for entry points and
  * for edges created from the returned task.
+ *
+ * TODO: consider making this generic (`<T extends AnyTask>(task: T, ...): T`),
+ * like `inDir`, so a wrapped task can be dropped straight into a `deps` array
+ * without tripping the `__unboundDependency` diagnostic (an `AnyTask` return
+ * has a `PENDING` slot of `any`, which the check reads as unbound). Not urgent
+ * while `wrapRun` is only used inside `transform`, where the context is `AnyTask[]`.
  */
 const wrapRun = ((
   task: AnyTask,
@@ -177,6 +184,7 @@ const wrapRun = ((
     identity: task.identity,
     requiresInput: task.requiresInput,
     cache: task.cache,
+    cwd: task.cwd,
     run: wrap(task.run),
     // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
     as: ((k: string) => makeDep(self, k, undefined)),
@@ -198,6 +206,75 @@ const wrapRun = ((
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
   return (self as AnyTask);
+});
+
+/**
+ * Return a copy of `task` and its whole dependency closure whose `run`s execute
+ * in `dir` (both `ctx.cwd` and `ctx.exec`), resolved relative to the run root;
+ * an absolute path is used as-is. Tasks in the closure that already set their
+ * own `cwd` keep it. Use it to depend on another package's task and have it run
+ * in that package's directory rather than the current config's.
+ *
+ * Like `wrapRun`, this is a rebuild: it walks deps transitively and rewires
+ * every edge to the copies, so the whole imported subgraph relocates together.
+ */
+// eslint-disable-next-line max-lines-per-function -- Clean.
+const inDir = (<T extends AnyTask>(
+  dir: string,
+  task: T
+): T => {
+  const memo = (new Map<AnyTask, AnyTask>());
+
+  const clone = ((t: AnyTask): AnyTask => {
+    const existing = memo.get(t);
+    if(existing) {
+      return existing;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
+    const key = ((t as any).key as string);
+    const self: any = {
+      id: t.id,
+      key: key,
+      taskId: t.taskId,
+      input: t.input,
+      description: t.description,
+      // Rewired below, after `self` is memoized, so dependency cycles resolve.
+      deps: [],
+      options: t.options,
+      identity: t.identity,
+      requiresInput: t.requiresInput,
+      cache: t.cache,
+      // A task's own explicit cwd wins; otherwise it relocates to `dir`.
+      cwd: (t.cwd ?? dir),
+      run: t.run,
+      // eslint-disable-next-line unicorn/no-useless-undefined -- Intentional.
+      as: ((k: string) => makeDep(self, k, undefined)),
+      with: ((input: unknown) => makeDep(self, key, input)),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
+      cached: ((policy: unknown): AnyTask => clone(t.cached(policy as never)))
+    };
+
+    Object.defineProperty(
+      self,
+      'task',
+      {
+        value: self,
+        enumerable: false
+      }
+    );
+    memo.set(t, self);
+
+    self.deps = t.deps.map((dep: AnyDep) => makeDep(clone(dep.task), dep.key, dep.input));
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
+    return (self as AnyTask);
+  });
+
+  // The clone has the same id, deps, and options as `task`, so it is a `T` --
+  // only its `run` cwd differs, which is not reflected in the type.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- Safe.
+  return ((clone(task) as unknown) as T);
 });
 
 const task = (<
@@ -251,6 +328,7 @@ export {
   task,
   namespace,
   wrapRun,
+  inDir,
   defineConfig
 };
 export type {

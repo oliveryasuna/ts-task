@@ -68,6 +68,14 @@ interface Task<
    */
   readonly requiresInput: boolean;
   /**
+   * Working directory for this task's `run` (both `ctx.cwd` and `ctx.exec`),
+   * resolved relative to the run root; an absolute path is used as-is. Defaults
+   * to the run root. Set it to run a task in another package's directory when
+   * folding several packages' graphs into one run. Like dependency outputs, it
+   * is not folded into cache keys automatically.
+   */
+  readonly cwd?: string;
+  /**
    * Distinguishes graph nodes for the same task invoked with different inputs.
    * Defaults to JSON of the input; override when the input is not
    * JSON-representable or when only part of it affects the result.
@@ -107,6 +115,8 @@ interface TaskDef<
   readonly input?: InputType<TIn>;
   readonly deps?: TDeps;
   readonly options?: TOpts;
+  /** Working directory for `run`, resolved relative to the run root. */
+  readonly cwd?: string;
   // eslint-disable-next-line @typescript-eslint/method-signature-style -- Intentional.
   readonly identity?: (input: TIn) => string;
   // eslint-disable-next-line @typescript-eslint/method-signature-style -- Intentional.

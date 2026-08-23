@@ -4,6 +4,7 @@ import chalk from 'chalk';
 import {watch} from 'chokidar';
 import {Option as CliOption, Command, CommanderError} from 'commander';
 import crypto from 'node:crypto';
+import path from 'node:path';
 import {parseArgs} from 'node:util';
 import pLimit from 'p-limit';
 import stringify from 'safe-stable-stringify';
@@ -201,12 +202,16 @@ const execute = (async(
       opts.signal.throwIfAborted();
 
       const log = makeLogger(node.label, opts.verbose);
+      // A task may relocate to its own directory (e.g. a task imported from
+      // another package via `inDir`); relative paths resolve against the run
+      // root. Defaults to the run root.
+      const cwd = ((node.task.cwd === undefined) ? opts.cwd : path.resolve(opts.cwd, node.task.cwd));
       const base = {
         taskId: node.task.id,
         input: node.input,
         deps: deps,
         options: opts.options,
-        cwd: opts.cwd,
+        cwd: cwd,
         env: process.env
       };
 
@@ -251,7 +256,7 @@ const execute = (async(
                 [...args],
                 {
                   signal: opts.signal,
-                  nodeOptions: {cwd: opts.cwd}
+                  nodeOptions: {cwd: cwd}
                 }
               ));
               return {

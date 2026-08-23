@@ -1,13 +1,33 @@
-import {defineConfig, task} from '@oliveryasuna/ts-task';
-import {build, ci, lint, verify} from '../../shared/tasks';
+import {defineConfig, namespace} from '@oliveryasuna/ts-task';
+import {buildDefFactory, ciDefFactory, lintDefFactory, typecheckDef, verifyDefFactory} from '../../shared/tasks';
+import {build as tsTaskBuild} from '../ts-task/tasks.config';
 import {summaryReporter} from './src';
 
-const prepack = task({
+const typecheck = namespace('plugin-summary').task(typecheckDef);
+
+const build = namespace('plugin-summary').task(buildDefFactory({
+  deps: [
+    tsTaskBuild,
+    typecheck.with({project: 'tsconfig.build.json'})
+  ]
+}));
+
+const lint = namespace('plugin-summary').task(lintDefFactory());
+
+const verify = namespace('plugin-summary').task(verifyDefFactory({
+  deps: [
+    lint,
+    typecheck.with({project: 'tsconfig.build.json'}),
+    build
+  ]
+}));
+
+const ci = namespace('plugin-summary').task(ciDefFactory({deps: [verify]}));
+
+const prepack = namespace('plugin-summary').task({
   name: 'prepack',
   description: 'Prepare the package for publication',
-  deps: [
-    verify
-  ],
+  deps: [verify],
   run: ((ctx) => {
     ctx.log.info('package prepared for publication');
   })
@@ -16,11 +36,11 @@ const prepack = task({
 export default defineConfig({
   plugins: [summaryReporter()],
   tasks: [
-    lint,
     build,
+    lint,
     verify,
-    ci,
+    // ci,
     prepack
   ],
-  defaultTask: 'verify'
+  defaultTask: 'plugin-summary:verify'
 });

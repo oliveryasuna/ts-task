@@ -6,7 +6,7 @@ export default defineConfig(
       ...defaults,
       'README.md',
       '*git-ignore*',
-      'plugins/**/*'
+      'packages/**/*'
     ]),
     javascript: {
       globals: {
@@ -25,5 +25,6 @@ export default defineConfig(
         ]
       }
     }
-  }
+  },
+  {rules: {'@stylistic/object-property-newline': ['error', {allowAllPropertiesOnSameLine: true}]}}
 );
