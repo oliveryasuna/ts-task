@@ -39,7 +39,7 @@ export default defineConfig({
     build,
     lint,
     verify,
-    // ci,
+    ci,
     prepack
   ],
   defaultTask: 'plugin-summary:verify'
