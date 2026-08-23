@@ -191,7 +191,7 @@ const execute = (async(
       return existing;
     }
 
-    // eslint-disable-next-line max-statements -- Clean.
+    // eslint-disable-next-line max-statements, complexity -- Clean.
     const promise = (async(): Promise<any> => {
       const deps: Record<string, unknown> = {};
       await Promise.all(

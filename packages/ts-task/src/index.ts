@@ -332,9 +332,12 @@ export {
   defineConfig
 };
 export type {
+  LoadOptions,
+  LoadedConfig,
   ResolvedConfig
 } from './config';
 export {
+  loadConfig,
   resolveConfig
 } from './config';
 export * from './types';

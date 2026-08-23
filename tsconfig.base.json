@@ -36,6 +36,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
+      "@oliveryasuna/ts-task-merge-tasks": ["./packages/plugin-merge-tasks/src/index.ts"],
       "@oliveryasuna/ts-task-summary": ["./packages/plugin-summary/src/index.ts"],
       "@oliveryasuna/ts-task": ["./packages/ts-task/src/index.ts"]
     },
