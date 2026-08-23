@@ -116,7 +116,7 @@ const ciDefFactory = makeDefFactory({
 export {
   typecheckDef,
   lintDefFactory,
-  buildDefFactory as makeBuildDef,
+  buildDefFactory,
   verifyDefFactory,
   ciDefFactory
 };
