@@ -35,7 +35,7 @@
     "package.json"
   ],
   "scripts": {
-    "prepack": "bun ../ts-task/src/cli.ts prepack"
+    "prepack": "bun ../ts-task/src/cli.ts plugin-merge-tasks:prepack"
   },
   "devDependencies": {
     "@oliveryasuna/eslint-config": "2.2.2",

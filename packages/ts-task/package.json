@@ -42,7 +42,7 @@
     "../../README.md"
   ],
   "scripts": {
-    "prepack": "bun ./src/cli.ts prepack"
+    "prepack": "bun ./src/cli.ts ts-task:prepack"
   },
   "dependencies": {
     "chalk": "6.0.0",
