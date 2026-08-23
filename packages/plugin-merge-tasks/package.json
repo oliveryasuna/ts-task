@@ -1,6 +1,6 @@
 {
   "name": "@oliveryasuna/ts-task-merge-tasks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "license": "MIT",
   "description": "A ts-task plugin that merges tasks from other config files.",
   "homepage": "https://github.com/oliveryasuna/ts-task",
@@ -32,7 +32,8 @@
   },
   "files": [
     "dist",
-    "package.json"
+    "package.json",
+    "README.md"
   ],
   "scripts": {
     "prepack": "bun ../ts-task/src/cli.ts plugin-merge-tasks:prepack"

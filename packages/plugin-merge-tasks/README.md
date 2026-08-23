@@ -36,13 +36,14 @@ export default defineConfig({
 
 
 // `packages/webapp/tasks.config.ts`
-import {defineConfig} from '@oliveryasuna/ts-task';
+import {defineConfig, inDir, namespace} from '@oliveryasuna/ts-task';
+import path from 'node:path';
 import {mergeTasks} from '@oliveryasuna/ts-task-merge-tasks';
 import {build as sharedBuild} from '../shared/tasks.config';
 
 const build = namespace('webapp').task({
   //...
-  deps: [sharedBuild]
+  deps: [inDir(path.resolve(import.meta.dirname, '../shared'), sharedBuild)]
 });
 const lint = namespace('webapp').task(...);
 const test = namespace('webapp').task(...);
@@ -51,13 +52,14 @@ export default defineConfig({tasks: [build, lint, test]});
 
 
 // `packages/api/tasks.config.ts`
-import {defineConfig} from '@oliveryasuna/ts-task';
+import {defineConfig, inDir, namespace} from '@oliveryasuna/ts-task';
+import path from 'node:path';
 import {mergeTasks} from '@oliveryasuna/ts-task-merge-tasks';
 import {build as sharedBuild} from '../shared/tasks.config';
 
 const build = namespace('api').task({
   //...
-  deps: [sharedBuild]
+  deps: [inDir(path.resolve(import.meta.dirname, '../shared'), sharedBuild)]
 });
 const lint = namespace('api').task(...);
 const test = namespace('api').task(...);
